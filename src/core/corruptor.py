@@ -73,6 +73,8 @@ class Corruptor:
             corruption_types = ['truncate', 'zero_fill', 'random_fill']
         records = []
         for src in sorted(sample_dir.rglob('*')):
+            if not src.is_file() or src.name.startswith('.'):
+                continue
             rel = src.relative_to(sample_dir)
             ratio = random.uniform(*ratio_range)
             for ctype in corruption_types:

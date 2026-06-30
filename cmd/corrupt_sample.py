@@ -1,7 +1,7 @@
 import json
 from dataclasses import asdict
 
-from src.corruptor import Corruptor
+from src.core.corruptor import Corruptor
 from src.config import SAMPLE_DIR, CORRUPTED_DIR, REPORTS_DIR
 
 
