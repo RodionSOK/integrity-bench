@@ -13,10 +13,10 @@ def compute_windowed_entropy(data: bytes, window_size: int = 256) -> list[float]
         return []
     arr = np.frombuffer(data, dtype=np.uint8)
     entropies = []
-    for i in range(0, len(arr) - window_size + 1, window_size):
+    for i in range(0, len(arr), window_size):
         window = arr[i:i + window_size]
         counts = np.bincount(window, minlength=256)
-        probs = counts / window_size
+        probs = counts / len(window)
         probs = probs[probs > 0]
         entropies.append(float(-np.sum(probs * np.log2(probs))))
     return entropies

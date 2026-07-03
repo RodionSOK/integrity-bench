@@ -59,12 +59,16 @@ class MachoChecker(FormatChecker):
 
     def check(self, data: bytes) -> dict:
         valid_magic = data[:4] in MAGIC_MACHO
-        valid_header = self._check_header(data) if valid_magic else False
-        return {'valid_magic': valid_magic, 'valid_header': valid_header}
+        valid_header, valid_load_commands = self._check_header(data) if valid_magic else (False, False)
+        return {
+            'valid_magic': valid_magic,
+            'valid_header': valid_header,
+            'valid_load_commands': valid_load_commands,
+        }
 
-    def _check_header(self, data: bytes) -> bool:
+    def _check_header(self, data: bytes) -> tuple[bool, bool]:
         if len(data) < 28:
-            return False
+            return False, False
         try:
             magic = data[:4]
             little = magic in {b'\xce\xfa\xed\xfe', b'\xcf\xfa\xed\xfe'}
@@ -72,6 +76,18 @@ class MachoChecker(FormatChecker):
             ncmds = struct.unpack_from(fmt, data, 16)[0]
             sizeofcmds = struct.unpack_from(fmt, data, 20)[0]
             header_size = 28 if magic in {b'\xce\xfa\xed\xfe', b'\xfe\xed\xfa\xce'} else 32
-            return header_size + sizeofcmds <= len(data) and ncmds < 256
+            if header_size + sizeofcmds > len(data) or ncmds >= 256:
+                return False, False
+            # обход load commands
+            offset = header_size
+            end = header_size + sizeofcmds
+            for _ in range(ncmds):
+                if offset + 8 > end:
+                    return True, False
+                cmdsize = struct.unpack_from(fmt, data, offset + 4)[0]
+                if cmdsize < 8 or cmdsize % 4 != 0 or offset + cmdsize > end:
+                    return True, False
+                offset += cmdsize
+            return True, offset == end
         except struct.error:
-            return False
+            return False, False
