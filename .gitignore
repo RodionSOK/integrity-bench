@@ -7,3 +7,6 @@ corrupted/
 reports/
 scripts/collect_macho.py
 sample/
+test_sample/
+test_reports/
+test_corrupted/

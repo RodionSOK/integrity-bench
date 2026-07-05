@@ -1,15 +1,25 @@
 from src.core.detectors.base import DetectorResult
 
+
 class Aggregator:
-    INTACT_THRESHOLD = 0.8
+    INTACT_THRESHOLD = 0.7
     CORRUPTED_THRESHOLD = 0.3
     HIGH_CONFIDENCE_THRESHOLD = 0.9
+    STRUCTURAL_VETO_CONFIDENCE = 0.5
 
     def aggregate(self, results: list[DetectorResult]) -> dict:
         applicable = [r for r in results if r.applicable]
         if not applicable:
             return {'score': 0.5, 'label': 'uncertain'}
 
+        structural_veto = [
+            r for r in applicable
+            if r.score == 0.0
+            and r.confidence >= self.STRUCTURAL_VETO_CONFIDENCE
+            and 'ml_group' not in r.signals
+        ]
+        if structural_veto:
+            return {'score': 0.0, 'label': 'corrupted'}
 
         high_conf = [r for r in applicable if r.confidence >= self.HIGH_CONFIDENCE_THRESHOLD]
         if high_conf:

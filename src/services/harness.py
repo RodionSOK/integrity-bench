@@ -5,6 +5,7 @@ from pathlib import Path
 from src.core.detectors.base import Detector, DetectorResult
 from src.core.format_specs import EXT_TO_HINT
 from src.core.detectors.crc import CrcDetector
+from src.core.detectors.ml import MlDetector
 from src.core.detectors.statistical import StatisticalDetector
 from src.core.detectors.structural import StructuralDetector
 from src.services.aggregator import Aggregator
@@ -16,6 +17,7 @@ class Harness:
             CrcDetector(),
             StructuralDetector(),
             StatisticalDetector(),
+            MlDetector(),
         ]
         self.aggregator = Aggregator()
 

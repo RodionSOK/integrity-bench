@@ -1,5 +1,6 @@
 import io
 import struct
+import subprocess
 import zlib
 
 from PIL import Image
@@ -46,15 +47,87 @@ class PngChecker(FormatChecker):
 class JpegChecker(FormatChecker):
     extensions = {'.jpg', '.jpeg'}
 
+    _NO_LENGTH = frozenset({0x01, *range(0xD0, 0xDA)})
+    _SOF_CODES = frozenset({
+        *range(0xC0, 0xC4), *range(0xC5, 0xC8),
+        *range(0xC9, 0xCC), *range(0xCD, 0xD0),
+    })
+
     def check(self, data: bytes) -> dict:
+        if len(data) < 4:
+            return {
+                'valid_soi': False, 'valid_eoi': False, 'decodable': False,
+                'has_sof': False, 'has_sos': False, 'markers_ok': False,
+            }
         valid_soi = data[:2] == b'\xff\xd8'
         valid_eoi = data[-2:] == b'\xff\xd9'
         decodable = self._decode(data)
-        return {'valid_soi': valid_soi, 'valid_eoi': valid_eoi, 'decodable': decodable}
+        markers = self._scan_markers(data) if valid_soi else {
+            'has_sof': False, 'has_sos': False, 'markers_ok': False,
+        }
+        return {'valid_soi': valid_soi, 'valid_eoi': valid_eoi, 'decodable': decodable, **markers}
+
+    def _scan_markers(self, data: bytes) -> dict:
+        has_sof = False
+        has_sos = False
+        markers_ok = True
+        pos = 2
+
+        while pos < len(data):
+            while pos < len(data) and data[pos] == 0xFF:
+                pos += 1
+            if pos >= len(data):
+                break
+
+            marker = data[pos]
+            pos += 1
+
+            if marker == 0xD9:
+                break
+            if marker == 0xDA:
+                has_sos = True
+                break
+            if marker in self._NO_LENGTH:
+                continue
+
+            if pos + 2 > len(data):
+                markers_ok = False
+                break
+            length = struct.unpack_from('>H', data, pos)[0]
+            if length < 2 or pos + length > len(data):
+                markers_ok = False
+                break
+
+            if marker in self._SOF_CODES:
+                has_sof = True
+
+            pos += length
+
+        return {'has_sof': has_sof, 'has_sos': has_sos, 'markers_ok': markers_ok}
+
+    def check_path(self, path: str) -> dict:
+        from pathlib import Path
+        result = self.check(Path(path).read_bytes())
+        result['djpeg_ok'] = self._run_djpeg(path)
+        return result
+
+    def _run_djpeg(self, path: str) -> bool:
+        try:
+            proc = subprocess.run(
+                ['djpeg', '-bmp', '-outfile', '/dev/null', path],
+                capture_output=True,
+                timeout=10,
+            )
+            return proc.returncode == 0
+        except FileNotFoundError:
+            return True
+        except Exception:
+            return True
 
     def _decode(self, data: bytes) -> bool:
         try:
-            Image.open(io.BytesIO(data)).verify()
+            img = Image.open(io.BytesIO(data))
+            img.load()
             return True
         except Exception:
             return False
@@ -65,14 +138,28 @@ class BmpChecker(FormatChecker):
 
     def check(self, data: bytes) -> dict:
         valid_magic = data[:2] == b'BM'
-        size_ok = self._check_size(data) if valid_magic else False
-        decodable = self._decode(data) if valid_magic else False
-        return {'valid_magic': valid_magic, 'size_ok': size_ok, 'decodable': decodable}
+        if not valid_magic:
+            return {'valid_magic': False, 'size_ok': False, 'pixel_ok': False, 'decodable': False}
+        size_ok = self._check_size(data)
+        pixel_ok = self._check_pixel_offset(data)
+        decodable = self._decode(data)
+        return {'valid_magic': valid_magic, 'size_ok': size_ok, 'pixel_ok': pixel_ok, 'decodable': decodable}
 
     def _check_size(self, data: bytes) -> bool:
+        if len(data) < 6:
+            return False
         try:
             bf_size = struct.unpack_from('<I', data, 2)[0]
-            return bf_size == len(data)
+            return len(data) >= bf_size
+        except struct.error:
+            return False
+
+    def _check_pixel_offset(self, data: bytes) -> bool:
+        if len(data) < 14:
+            return False
+        try:
+            bf_off_bits = struct.unpack_from('<I', data, 10)[0]
+            return bf_off_bits < len(data)
         except struct.error:
             return False
 
