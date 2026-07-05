@@ -1,3 +1,4 @@
+import sys
 import time
 from pathlib import Path
 
@@ -6,7 +7,16 @@ from src.core.features.ml_features import extract_features
 from src.core.format_specs import FORMAT_SPECS
 
 CONFIDENCE = 0.9
-_MODELS_DIR = Path(__file__).parent.parent.parent.parent / 'models'
+
+
+def _models_dir() -> Path:
+    # PyInstaller распаковывает данные в sys._MEIPASS
+    if getattr(sys, 'frozen', False):
+        return Path(sys._MEIPASS) / 'models'
+    return Path(__file__).parent.parent.parent.parent / 'models'
+
+
+_MODELS_DIR = _models_dir()
 
 
 class MlDetector(Detector):

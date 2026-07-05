@@ -6,7 +6,8 @@ from pathlib import Path
 import joblib
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import cross_val_score
+from sklearn.metrics import make_scorer, precision_score, recall_score
+from sklearn.model_selection import cross_validate
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -113,8 +114,16 @@ def main() -> None:
             random_state=42,
         )
 
-        cv_scores = cross_val_score(clf, X, y, cv=min(5, len(y) // 2), scoring='accuracy')
-        print(f'  CV accuracy: {cv_scores.mean():.3f} ± {cv_scores.std():.3f}')
+        cv = min(5, len(y) // 2)
+        scoring = {
+            'accuracy': 'accuracy',
+            'precision': make_scorer(precision_score, pos_label='corrupted', zero_division=0),
+            'recall': make_scorer(recall_score, pos_label='corrupted', zero_division=0),
+        }
+        cv_results = cross_validate(clf, X, y, cv=cv, scoring=scoring)
+        print(f'  CV accuracy:  {cv_results["test_accuracy"].mean():.3f} ± {cv_results["test_accuracy"].std():.3f}')
+        print(f'  CV precision: {cv_results["test_precision"].mean():.3f} ± {cv_results["test_precision"].std():.3f}')
+        print(f'  CV recall:    {cv_results["test_recall"].mean():.3f} ± {cv_results["test_recall"].std():.3f}')
 
         clf.fit(X, y)
 

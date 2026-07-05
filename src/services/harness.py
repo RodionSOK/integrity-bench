@@ -81,11 +81,18 @@ class Harness:
         metrics: dict = {}
         if with_gt:
             correct = sum(1 for r in with_gt if r.get('correct', False))
+            tp = sum(1 for r in with_gt if r['label'] == 'corrupted' and r['true_label'] == 'corrupted')
+            fp = sum(1 for r in with_gt if r['label'] == 'corrupted' and r['true_label'] == 'intact')
+            fn = sum(1 for r in with_gt if r['label'] != 'corrupted' and r['true_label'] == 'corrupted')
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
             metrics = {
                 'total': len(with_gt),
                 'correct': correct,
                 'incorrect': len(with_gt) - correct,
                 'accuracy': round(correct / len(with_gt), 4),
+                'precision': round(precision, 4),
+                'recall': round(recall, 4),
                 'avg_time_ms': round(
                     sum(r['time_ms'] for r in with_gt) / len(with_gt), 2
                 ),
