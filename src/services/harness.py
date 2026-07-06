@@ -64,7 +64,8 @@ class Harness:
         if ground_truth_path is not None:
             records = json.loads(ground_truth_path.read_text(encoding='utf-8'))
             for rec in records:
-                name = Path(rec['corrupted_path']).name
+                raw = rec.get('corrupted_path') or rec.get('file', '')
+                name = Path(raw).name
                 ground_truth[name] = rec['label']
 
         file_results = []

@@ -13,3 +13,5 @@ sample/
 test_sample/
 test_reports/
 test_corrupted/
+eval_sample/
+eval_ground_truth.json
