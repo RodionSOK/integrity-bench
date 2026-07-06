@@ -2,8 +2,16 @@
 __pycache__/
 *.pyc
 .DS_Store
+dist/
+build/
+bench.spec
 .mypy_cache/
 corrupted/
 reports/
 scripts/collect_macho.py
 sample/
+test_sample/
+test_reports/
+test_corrupted/
+eval_sample/
+eval_ground_truth.json
